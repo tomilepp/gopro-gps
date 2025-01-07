@@ -1,0 +1,8 @@
+[package]
+name = "gopro-gps"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+argh = "0.1.13"
+telemetry-parser = "0.2.6"
