@@ -110,7 +110,7 @@ fn main() {
                                     speed_3d: gpsdata.get()[0][4] as f32 / 100.0,
                                 });
                             } else {
-                                eprintln!("Unexpected tag value type for GPSU");
+                                eprintln!("Unexpected tag value type for GPS5");
                             }
 
                         }
