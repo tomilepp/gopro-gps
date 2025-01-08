@@ -260,6 +260,7 @@ name = "gopro-gps"
 version = "0.1.0"
 dependencies = [
  "argh",
+ "chrono",
  "telemetry-parser",
 ]
 

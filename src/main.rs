@@ -1,6 +1,7 @@
 use std::sync::{atomic::AtomicBool, Arc};
 
 use argh::FromArgs;
+use chrono::{SecondsFormat, TimeZone, Utc};
 use telemetry_parser::tags_impl::*;
 use telemetry_parser::*;
 
@@ -9,6 +10,16 @@ use telemetry_parser::*;
  */
 #[derive(FromArgs)]
 struct Opts {
+    /// csv output
+    #[argh(switch, short = 'c')]
+    csv: bool,
+    /// kml output
+    #[argh(switch, short = 'k')]
+    kml: bool,
+    /// gpx output
+    #[argh(switch, short = 'g')]
+    gpx: bool,
+    /// 
     /// input file
     #[argh(positional)]
     file: String,
@@ -27,20 +38,17 @@ const  KML_HEAD: &'static str = r#"<?xml version="1.0" encoding="UTF-8"?>
 <Document>
 <Placemark> 
  <LineString>
-  <coordinates>
-"#;
+  <coordinates>"#;
+  
 const  KML_END : &'static str = r#"  </coordinates>
  </LineString>
 </Placemark>
 </Document>
-</kml>
-"#;
+</kml>"#;
 
 const   GPX_HEAD : &'static str = r#"<?xml version="1.0" encoding="UTF-8"?> 
-<gpx  xmlns="http://www.topografix.com/GPX/1/1">
-"#;
-const GPX_END : &str = r#"
-</gpx>"#;
+<gpx  xmlns="http://www.topografix.com/GPX/1/1">"#;
+const GPX_END : &str = r#"</gpx>"#;
 
 fn main() {
     let opts: Opts = argh::from_env();
@@ -49,8 +57,22 @@ fn main() {
     let filesize = stream.metadata().unwrap().len() as usize;
 
     //println!("file = {} size={}", opts.file, filesize);
-    println!("{}", KML_HEAD);
-
+    match opts {
+        Opts { csv: true, .. } => {
+            println!("UTC Time,Latitude,Longitude,Altitude,2D Speed,3D Speed");
+        }
+        Opts { kml: true, .. } => {
+            println!("{}", KML_HEAD);
+        }
+        Opts { gpx: true, .. } => {
+            println!("{}", GPX_HEAD);
+        }
+        _ => {eprintln!("Error: select kml, csv or gpx output");
+            return;
+        }
+        
+    }
+    
     let input = Input::from_stream(
         &mut stream,
         filesize,
@@ -124,7 +146,25 @@ fn main() {
                 if(utc_time.is_some() && gps5.is_some() ){
                     let gps5 = gps5.unwrap();
                     // println!("UTC Time: {} Latitude: {} Longitude: {} Altitude: {} 2D Speed: {} 3D Speed: {}", utc_time.unwrap(), gps5.latitude, gps5.longitude, gps5.altitude, gps5.speed_2d, gps5.speed_3d);
-                    println!("{},{},{}", gps5.longitude, gps5.latitude, gps5.altitude);
+                    match opts {
+                        Opts { csv: true, .. } => {
+                            let utc = Utc.timestamp_millis(utc_time.unwrap() as i64);
+                            println!("{},{},{},{},{},{}", utc.to_rfc3339_opts(SecondsFormat::Millis, true), gps5.latitude, gps5.longitude, gps5.altitude, gps5.speed_2d, gps5.speed_3d);
+                        }
+                        Opts { kml: true, .. } => {
+                            println!("{},{},{}", gps5.longitude, gps5.latitude, gps5.altitude);
+                        }
+                        Opts { gpx: true, .. } => {
+                            let utc = Utc.timestamp_millis(utc_time.unwrap() as i64);
+                            println!("<trkpt lat=\"{}\" lon=\"{}\">", gps5.latitude, gps5.longitude);
+                            println!("  <ele>{}</ele>", gps5.altitude);
+                            println!("  <time>{}<time>", utc.to_rfc3339_opts(SecondsFormat::Millis, true));
+                            println!("  <speed>{}</speed>", gps5.speed_2d);
+                            println!("</trkpt>");
+                        }
+                        _ => {}
+                        
+                    }
                 }
         
 
@@ -140,5 +180,11 @@ fn main() {
             }
         }
     }
-    println!("{}", KML_END);
+    match opts {
+        Opts { csv: true, .. } => {}
+        Opts { kml: true, .. } => {println!("{}", KML_END);}
+        Opts { gpx: true, .. } => {println!("{}", GPX_END);}
+        _ => {}
+        
+    }
 }
